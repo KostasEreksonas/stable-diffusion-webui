@@ -281,92 +281,11 @@ prepare_tcmalloc() {
     fi
 }
 
-# Install extensions for stable diffusion webui
-# Declare a read-only associative array of stable diffusion extensions
-# Key - name of a git repo
-# Value - name of an extension
-declare -rA extensions=(["Bing-su"]="adetailer"
-                        ["Elldreth"]="loopback_scaler"
-                        ["pkuliyi2015"]="multidiffusion-upscaler-for-automatic1111"
-                        ["mcmonkeyprojects"]="sd-dynamic-thresholding"
-                        ["Mikubill"]="sd-webui-controlnet"
-                        ["KU-CVLAB"]="Self-Attention-Guidance"
-                        ["opparco"]="stable-diffusion-webui-composable-lora")
+# Install Stable Diffusion extensions
+$(extend-SD)
 
-# Loop through an associative array
-for key in ${!extensions[@]}; do
-        pkg=${extensions[${key}]}
-        printf "\n%s\n" "${delimiter}"
-		printf "Installing $pkg\n"
-        git clone https://github.com/${key}/${pkg}.git extensions/${pkg}
-done
-
-# Download additional models for stable diffusion
-function updateName {
-	# Update model name to contain only letters and numbers
-	string=$1
-	newString=""
-	for (( i=0; i<${#string}; i++ )); do
-		if [[ "${string:$i:1}" =~ [A-Za-z0-9] ]]; then
-			newString="${newString}${string:$i:1}"
-		fi
-	done
-	echo $newString
-}
-
-function downloadModel {
-	# Downloads Stable Diffusion models to a specified location
-	dir=$1 # Current directory
-	folder=$2 # Download folder for models
-	token=$3 # CivitAI token
-	shift 3 # Delete first 3 values from function's input array
-	versionId=$@ # Array of model version ID's to download
-
-	# Create a folder to download models, if it doesn't exist
-	if ! [ -d $folder ]; then
-		mkdir -p $folder
-	fi
-
-	# Download selected models
-	cd $folder
-	for id in ${versionId[@]}; do
-		# Get ID of a model from it's version ID
-		modelId=$(curl -s https://civitai.com/model-versions/$id | cut -d "/" -f 3 | cut -d "?" -f 1)
-		# Get model name
-		modelName=$(curl -s https://civitai.com/api/v1/models/$modelId | jq ".name" | sed 's/ //g' | tr -d "\"")
-		# Strip all special symbols from model name
-		modelName=$(updateName $modelName)
-		# Save model to <model-name>.safetensors
-		if ! [ -f $modelName ]; then
-			curl -s -o "${modelName}.safetensors" -L -H "Content-Type: application/json" -H "Authorization: Bearer $token" https://civitai.com/api/download/models/$id?type=Model&format=SafeTensor&size=pruned&fp=fp16
-		fi
-	done
-
-	# Wait while all models are downloaded
-	count=$(ps -ef | grep curl | wc -l)
-	while [ $count > 1 ]; do
-		count=$(ps -ef | grep curl | wc -l)
-		if [ $count == 1 ]; then break; fi
-		sleep 1
-	done
-
-	# Remove residual files
-	rm 1
-
-	# Go back to original directory
-	cd $dir
-}
-
-# Add a stable diffusion token
-token=31119d438adc6c3c0c0e39eeed4e7995
-
-# Download Lora models
-models=(135867 319697 116354 33381)
-downloadModel $PWD "models/Lora/" $token ${models[@]}
-
-# Download Checkpoints
-models=(511677 429454 361593)
-downloadModel $PWD "models/Stable-diffusion" $token ${models[@]}
+# Download additional models for Stable Diffusion
+$(download-models)
 
 KEEP_GOING=1
 export SD_WEBUI_RESTART=tmp/restart
