@@ -282,10 +282,11 @@ prepare_tcmalloc() {
 }
 
 # Install Stable Diffusion extensions
-$(extend-SD)
+extend-SD
 
 # Download additional models for Stable Diffusion
-$(download-models)
+token=$1
+download-models $token
 
 KEEP_GOING=1
 export SD_WEBUI_RESTART=tmp/restart
